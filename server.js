@@ -29,10 +29,13 @@ app.use(
     cors({
         origin: function (origin, callback) {
 
+            // Izinkan request tanpa origin
+            // Contoh: PowerShell, Postman, server-to-server
             if (!origin) {
                 return callback(null, true);
             }
 
+            // Izinkan origin yang terdaftar
             if (allowedOrigins.includes(origin)) {
                 return callback(null, true);
             }
@@ -90,7 +93,7 @@ app.get("/health", (req, res) => {
 });
 
 // ========================================
-// AUTH ROUTES
+// API ROUTES
 // ========================================
 
 app.use(
@@ -98,54 +101,30 @@ app.use(
     authRoutes
 );
 
-// ========================================
-// PEMASUKAN ROUTES
-// ========================================
-
 app.use(
     "/api/pemasukan",
     pemasukanRoutes
 );
-
-// ========================================
-// PENGELUARAN ROUTES
-// ========================================
 
 app.use(
     "/api/pengeluaran",
     pengeluaranRoutes
 );
 
-// ========================================
-// APPROVAL ROUTES
-// ========================================
-
 app.use(
     "/api/approval",
     approvalRoutes
 );
-
-// ========================================
-// DASHBOARD ROUTES
-// ========================================
 
 app.use(
     "/api/dashboard",
     dashboardRoutes
 );
 
-// ========================================
-// LAPORAN ROUTES
-// ========================================
-
 app.use(
     "/api/laporan",
     laporanRoutes
 );
-
-// ========================================
-// USERS ROUTES
-// ========================================
 
 app.use(
     "/api/users",
@@ -184,8 +163,11 @@ app.use((err, req, res, next) => {
 // LOCAL SERVER
 // ========================================
 //
-// Vercel tidak menjalankan app.listen().
-// Local development tetap menggunakan port 5000.
+// Vercel:
+// Tidak menjalankan app.listen()
+//
+// Local:
+// Menjalankan server pada port 5000
 //
 
 if (require.main === module) {
@@ -212,7 +194,7 @@ if (require.main === module) {
 }
 
 // ========================================
-// EXPORT EXPRESS APP
+// EXPORT APP FOR VERCEL
 // ========================================
 
 module.exports = app;
