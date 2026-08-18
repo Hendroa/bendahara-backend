@@ -11,21 +11,11 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const laporanRoutes = require("./routes/laporanRoutes");
 const userRoutes = require("./routes/userRoutes");
 
-require("./config/db");
-
 const app = express();
 
 // ========================================
 // CORS
 // ========================================
-//
-// Development:
-// http://localhost:5173
-// http://localhost:3000
-//
-// Production:
-// FRONTEND_URL=https://nama-aplikasi.netlify.app
-//
 
 const allowedOrigins = [
     "http://localhost:5173",
@@ -164,10 +154,12 @@ app.use(
 // ========================================
 
 app.use((req, res) => {
+
     res.status(404).json({
         success: false,
         message: `Route tidak ditemukan: ${req.method} ${req.originalUrl}`
     });
+
 });
 
 // ========================================
@@ -182,38 +174,38 @@ app.use((err, req, res, next) => {
         success: false,
         message: "Terjadi kesalahan pada server"
     });
+
 });
 
 // ========================================
-// PORT
-// ========================================
-//
-// Production:
-// Hosting akan memberikan PORT.
-//
-// Development:
-// Jika PORT tidak tersedia,
-// gunakan port 5000.
-//
-
-const PORT = process.env.PORT || 5000;
-
-// ========================================
-// START SERVER
+// LOCAL DEVELOPMENT
 // ========================================
 
-app.listen(
-    PORT,
-    "0.0.0.0",
-    () => {
+if (require.main === module) {
 
-        console.log("");
-        console.log("=======================================");
-        console.log("       BACKEND BENDAHARA");
-        console.log("=======================================");
-        console.log(`Server berjalan pada PORT ${PORT}`);
-        console.log("Health Check: /health");
-        console.log("=======================================");
-        console.log("");
-    }
-);
+    const PORT = process.env.PORT || 5000;
+
+    app.listen(
+        PORT,
+        "0.0.0.0",
+        () => {
+
+            console.log("");
+            console.log("=======================================");
+            console.log("       BACKEND BENDAHARA");
+            console.log("=======================================");
+            console.log(`Server berjalan pada PORT ${PORT}`);
+            console.log("Health Check: /health");
+            console.log("=======================================");
+            console.log("");
+
+        }
+    );
+
+}
+
+// ========================================
+// EXPORT APP
+// ========================================
+
+module.exports = app;
