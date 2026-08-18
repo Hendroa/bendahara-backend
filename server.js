@@ -11,27 +11,19 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const laporanRoutes = require("./routes/laporanRoutes");
 const userRoutes = require("./routes/userRoutes");
 
-const db = require("./config/db");
+require("./config/db");
 
 const app = express();
-
-
-// ========================================
-// MIDDLEWARE
-// ========================================
 
 // ========================================
 // CORS
 // ========================================
 //
-// Saat development:
+// Development:
 // http://localhost:5173
+// http://localhost:3000
 //
-// Saat production:
-// frontend Netlify akan menggunakan domain
-// yang akan kita masukkan melalui environment variable.
-//
-// Contoh:
+// Production:
 // FRONTEND_URL=https://nama-aplikasi.netlify.app
 //
 
@@ -40,7 +32,6 @@ const allowedOrigins = [
     "http://localhost:3000",
     process.env.FRONTEND_URL
 ].filter(Boolean);
-
 
 app.use(
     cors({
@@ -57,22 +48,16 @@ app.use(
                 return callback(null, true);
             }
 
-            console.log(
-                "CORS BLOCKED:",
-                origin
-            );
+            console.log("CORS BLOCKED:", origin);
 
             return callback(
-                new Error(
-                    "Origin tidak diizinkan oleh CORS"
-                )
+                new Error("Origin tidak diizinkan oleh CORS")
             );
         },
 
         credentials: true
     })
 );
-
 
 // ========================================
 // BODY PARSER
@@ -86,75 +71,57 @@ app.use(
     })
 );
 
-
 // ========================================
 // TEST BACKEND
 // ========================================
 
 app.get("/", (req, res) => {
-
     res.json({
         success: true,
         status: "OK",
         message: "Backend Bendahara Berjalan"
     });
-
 });
-
 
 // ========================================
 // HEALTH CHECK
 // ========================================
-//
-// Digunakan untuk memastikan server online.
-//
 
 app.get("/health", (req, res) => {
-
     res.json({
         success: true,
         status: "healthy",
         message: "Backend Bendahara Online",
         timestamp: new Date().toISOString()
     });
-
 });
-
 
 // ========================================
 // AUTH ROUTES
 // ========================================
-// POST /api/auth/login
 
 app.use(
     "/api/auth",
     authRoutes
 );
 
-
 // ========================================
 // PEMASUKAN ROUTES
 // ========================================
-// GET  /api/pemasukan
-// POST /api/pemasukan
 
 app.use(
     "/api/pemasukan",
     pemasukanRoutes
 );
 
-
 // ========================================
 // PENGELUARAN ROUTES
 // ========================================
-// GET  /api/pengeluaran
-// POST /api/pengeluaran
 
 app.use(
     "/api/pengeluaran",
     pengeluaranRoutes
 );
-
 
 // ========================================
 // APPROVAL ROUTES
@@ -165,7 +132,6 @@ app.use(
     approvalRoutes
 );
 
-
 // ========================================
 // DASHBOARD ROUTES
 // ========================================
@@ -174,7 +140,6 @@ app.use(
     "/api/dashboard",
     dashboardRoutes
 );
-
 
 // ========================================
 // LAPORAN ROUTES
@@ -185,7 +150,6 @@ app.use(
     laporanRoutes
 );
 
-
 // ========================================
 // USERS ROUTES
 // ========================================
@@ -195,24 +159,16 @@ app.use(
     userRoutes
 );
 
-
 // ========================================
 // 404
 // ========================================
 
 app.use((req, res) => {
-
     res.status(404).json({
-
         success: false,
-
-        message:
-            `Route tidak ditemukan: ${req.method} ${req.originalUrl}`
-
+        message: `Route tidak ditemukan: ${req.method} ${req.originalUrl}`
     });
-
 });
-
 
 // ========================================
 // ERROR HANDLER
@@ -220,38 +176,27 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
 
-    console.error(
-        "SERVER ERROR:",
-        err
-    );
+    console.error("SERVER ERROR:", err);
 
     res.status(500).json({
-
         success: false,
-
-        message:
-            "Terjadi kesalahan pada server"
-
+        message: "Terjadi kesalahan pada server"
     });
-
 });
-
 
 // ========================================
 // PORT
 // ========================================
 //
 // Production:
-// Hosting akan memberikan PORT
+// Hosting akan memberikan PORT.
 //
 // Development:
 // Jika PORT tidak tersedia,
-// gunakan 5000.
+// gunakan port 5000.
 //
 
-const PORT =
-    process.env.PORT || 5000;
-
+const PORT = process.env.PORT || 5000;
 
 // ========================================
 // START SERVER
@@ -263,66 +208,12 @@ app.listen(
     () => {
 
         console.log("");
-
-        console.log(
-            "======================================="
-        );
-
-        console.log(
-            "       BACKEND BENDAHARA"
-        );
-
-        console.log(
-            "======================================="
-        );
-
-        console.log(
-            `🚀 Server berjalan pada PORT ${PORT}`
-        );
-
-        console.log(
-            `🌐 Environment: ${
-                process.env.NODE_ENV || "development"
-            }`
-        );
-
-        console.log(
-            "🔐 Login API: POST /api/auth/login"
-        );
-
-        console.log(
-            "💰 Pemasukan API: /api/pemasukan"
-        );
-
-        console.log(
-            "💸 Pengeluaran API: /api/pengeluaran"
-        );
-
-        console.log(
-            "✅ Approval API: /api/approval"
-        );
-
-        console.log(
-            "📊 Dashboard API: /api/dashboard"
-        );
-
-        console.log(
-            "📄 Laporan API: /api/laporan"
-        );
-
-        console.log(
-            "👥 Users API: /api/users"
-        );
-
-        console.log(
-            "❤️ Health Check: /health"
-        );
-
-        console.log(
-            "======================================="
-        );
-
+        console.log("=======================================");
+        console.log("       BACKEND BENDAHARA");
+        console.log("=======================================");
+        console.log(`Server berjalan pada PORT ${PORT}`);
+        console.log("Health Check: /health");
+        console.log("=======================================");
         console.log("");
-
     }
 );
