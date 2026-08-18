@@ -11,6 +11,8 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const laporanRoutes = require("./routes/laporanRoutes");
 const userRoutes = require("./routes/userRoutes");
 
+require("./config/postgres");
+
 const app = express();
 
 // ========================================
@@ -27,13 +29,10 @@ app.use(
     cors({
         origin: function (origin, callback) {
 
-            // Izinkan request tanpa origin
-            // Contoh: Postman, PowerShell, server-to-server
             if (!origin) {
                 return callback(null, true);
             }
 
-            // Izinkan origin yang terdaftar
             if (allowedOrigins.includes(origin)) {
                 return callback(null, true);
             }
@@ -66,11 +65,13 @@ app.use(
 // ========================================
 
 app.get("/", (req, res) => {
+
     res.json({
         success: true,
         status: "OK",
         message: "Backend Bendahara Berjalan"
     });
+
 });
 
 // ========================================
@@ -78,12 +79,14 @@ app.get("/", (req, res) => {
 // ========================================
 
 app.get("/health", (req, res) => {
+
     res.json({
         success: true,
         status: "healthy",
         message: "Backend Bendahara Online",
         timestamp: new Date().toISOString()
     });
+
 });
 
 // ========================================
@@ -178,8 +181,12 @@ app.use((err, req, res, next) => {
 });
 
 // ========================================
-// LOCAL DEVELOPMENT
+// LOCAL SERVER
 // ========================================
+//
+// Vercel tidak menjalankan app.listen().
+// Local development tetap menggunakan port 5000.
+//
 
 if (require.main === module) {
 
@@ -205,7 +212,7 @@ if (require.main === module) {
 }
 
 // ========================================
-// EXPORT APP
+// EXPORT EXPRESS APP
 // ========================================
 
 module.exports = app;
