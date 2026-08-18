@@ -1,52 +1,40 @@
 const bcrypt = require("bcryptjs");
-const db = require("../config/db");
-
+const pool = require("../config/postgres");
 
 // ========================================
 // HELPER ACTIVITY LOG
 // ========================================
 
-const createActivityLog = (
+const createActivityLog = async (
   userId,
   aktivitas
 ) => {
-
-  return new Promise((resolve, reject) => {
-
-    db.run(
+  try {
+    await pool.query(
       `
         INSERT INTO activity_log
         (
           user_id,
           aktivitas
         )
-        VALUES (?, ?)
+        VALUES ($1, $2)
       `,
       [
         userId || null,
         aktivitas,
-      ],
-      (err) => {
-
-        if (err) {
-
-          console.error(
-            "ACTIVITY LOG ERROR:",
-            err
-          );
-
-          reject(err);
-
-          return;
-        }
-
-        resolve();
-
-      }
+      ]
     );
 
-  });
+  } catch (error) {
 
+    console.error(
+      "ACTIVITY LOG ERROR:",
+      error
+    );
+
+    // Activity log tidak boleh membuat
+    // proses utama gagal.
+  }
 };
 
 
@@ -54,50 +42,47 @@ const createActivityLog = (
 // GET SEMUA USER
 // ========================================
 
-const getAllUsers = (req, res) => {
+const getAllUsers = async (req, res) => {
 
-  db.all(
-    `
-      SELECT
-        id,
-        nama,
-        email,
-        role
-      FROM users
-      ORDER BY id ASC
-    `,
-    [],
-    (err, rows) => {
+  try {
 
-      if (err) {
+    const result = await pool.query(
+      `
+        SELECT
+          id,
+          nama,
+          email,
+          role
+        FROM users
+        ORDER BY id ASC
+      `
+    );
 
-        console.error(
-          "GET USERS ERROR:",
-          err
-        );
+    return res.json({
 
-        return res.status(500).json({
+      success: true,
 
-          success: false,
+      data: result.rows,
 
-          message:
-            "Gagal mengambil data user",
+    });
 
-        });
+  } catch (error) {
 
-      }
+    console.error(
+      "GET USERS ERROR:",
+      error
+    );
 
+    return res.status(500).json({
 
-      return res.json({
+      success: false,
 
-        success: true,
+      message:
+        "Gagal mengambil data user",
 
-        data: rows,
+    });
 
-      });
-
-    }
-  );
+  }
 
 };
 
@@ -140,6 +125,10 @@ const createUser = async (req, res) => {
 
     }
 
+
+    // ======================================
+    // CLEAN DATA
+    // ======================================
 
     const namaClean =
       String(nama).trim();
@@ -206,181 +195,144 @@ const createUser = async (req, res) => {
     // CEK EMAIL
     // ======================================
 
-    db.get(
-      `
-        SELECT id
-        FROM users
-        WHERE email = ?
-      `,
-      [emailClean],
-      async (
-        err,
-        existingUser
-      ) => {
-
-        if (err) {
-
-          console.error(
-            "CHECK EMAIL ERROR:",
-            err
-          );
-
-          return res.status(500).json({
-
-            success: false,
-
-            message:
-              "Gagal memeriksa email",
-
-          });
-
-        }
+    const existingUserResult =
+      await pool.query(
+        `
+          SELECT
+            id
+          FROM users
+          WHERE LOWER(email) = LOWER($1)
+          LIMIT 1
+        `,
+        [
+          emailClean,
+        ]
+      );
 
 
-        if (existingUser) {
+    if (
+      existingUserResult.rows.length > 0
+    ) {
 
-          return res.status(400).json({
+      return res.status(400).json({
 
-            success: false,
+        success: false,
 
-            message:
-              "Email sudah digunakan",
+        message:
+          "Email sudah digunakan",
 
-          });
+      });
 
-        }
-
-
-        // ==================================
-        // HASH PASSWORD
-        // ==================================
-
-        let hashedPassword;
-
-        try {
-
-          hashedPassword =
-            await bcrypt.hash(
-              password,
-              10
-            );
-
-        } catch (hashError) {
-
-          console.error(
-            "HASH PASSWORD ERROR:",
-            hashError
-          );
-
-          return res.status(500).json({
-
-            success: false,
-
-            message:
-              "Gagal mengenkripsi password",
-
-          });
-
-        }
+    }
 
 
-        // ==================================
-        // INSERT USER
-        // ==================================
+    // ======================================
+    // HASH PASSWORD
+    // ======================================
 
-        db.run(
-          `
-            INSERT INTO users
-            (
-              nama,
-              email,
-              password,
-              role
-            )
-            VALUES (?, ?, ?, ?)
-          `,
-          [
-            namaClean,
-            emailClean,
-            hashedPassword,
-            roleClean,
-          ],
-          async function (insertError) {
+    let hashedPassword;
 
-            if (insertError) {
+    try {
 
-              console.error(
-                "CREATE USER ERROR:",
-                insertError
-              );
-
-              return res.status(500).json({
-
-                success: false,
-
-                message:
-                  "Gagal membuat user",
-
-              });
-
-            }
-
-
-            const newUserId =
-              this.lastID;
-
-
-            // =================================
-            // ACTIVITY LOG
-            // =================================
-
-            try {
-
-              await createActivityLog(
-                req.user?.id || null,
-                `Menambahkan user: ${namaClean} (${emailClean}) dengan role ${roleClean}`
-              );
-
-            } catch (logError) {
-
-              console.error(
-                "CREATE LOG ERROR:",
-                logError
-              );
-
-            }
-
-
-            // =================================
-            // RESPONSE
-            // =================================
-
-            return res.status(201).json({
-
-              success: true,
-
-              message:
-                "User berhasil dibuat",
-
-              data: {
-
-                id: newUserId,
-
-                nama: namaClean,
-
-                email: emailClean,
-
-                role: roleClean,
-
-              },
-
-            });
-
-          }
+      hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
         );
 
-      }
+    } catch (hashError) {
+
+      console.error(
+        "HASH PASSWORD ERROR:",
+        hashError
+      );
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Gagal mengenkripsi password",
+
+      });
+
+    }
+
+
+    // ======================================
+    // INSERT USER
+    // ======================================
+
+    const insertResult =
+      await pool.query(
+        `
+          INSERT INTO users
+          (
+            nama,
+            email,
+            password,
+            role
+          )
+          VALUES
+          (
+            $1,
+            $2,
+            $3,
+            $4
+          )
+          RETURNING
+            id,
+            nama,
+            email,
+            role
+        `,
+        [
+          namaClean,
+          emailClean,
+          hashedPassword,
+          roleClean,
+        ]
+      );
+
+
+    const newUser =
+      insertResult.rows[0];
+
+
+    // ======================================
+    // ACTIVITY LOG
+    // ======================================
+
+    await createActivityLog(
+      req.user?.id || null,
+      `Menambahkan user: ${namaClean} (${emailClean}) dengan role ${roleClean}`
     );
+
+
+    // ======================================
+    // RESPONSE
+    // ======================================
+
+    return res.status(201).json({
+
+      success: true,
+
+      message:
+        "User berhasil dibuat",
+
+      data: {
+
+        id: newUser.id,
+
+        nama: newUser.nama,
+
+        email: newUser.email,
+
+        role: newUser.role,
+
+      },
+
+    });
 
   } catch (error) {
 
@@ -446,6 +398,10 @@ const updateUser = async (req, res) => {
     }
 
 
+    // ======================================
+    // CLEAN DATA
+    // ======================================
+
     const namaClean =
       String(nama).trim();
 
@@ -491,349 +447,275 @@ const updateUser = async (req, res) => {
     // CEK USER
     // ======================================
 
-    db.get(
-      `
-        SELECT
+    const userResult =
+      await pool.query(
+        `
+          SELECT
+            id,
+            nama,
+            email,
+            role
+          FROM users
+          WHERE id = $1
+          LIMIT 1
+        `,
+        [
           id,
-          nama,
-          email,
-          role
-        FROM users
-        WHERE id = ?
-      `,
-      [id],
-      async (
-        err,
-        user
-      ) => {
-
-        if (err) {
-
-          console.error(
-            "GET USER ERROR:",
-            err
-          );
-
-          return res.status(500).json({
-
-            success: false,
-
-            message:
-              "Gagal mengambil user",
-
-          });
-
-        }
+        ]
+      );
 
 
-        if (!user) {
-
-          return res.status(404).json({
-
-            success: false,
-
-            message:
-              "User tidak ditemukan",
-
-          });
-
-        }
+    const user =
+      userResult.rows[0];
 
 
-        // ==================================
-        // CEK EMAIL DUPLIKAT
-        // ==================================
+    if (!user) {
 
-        db.get(
+      return res.status(404).json({
+
+        success: false,
+
+        message:
+          "User tidak ditemukan",
+
+      });
+
+    }
+
+
+    // ======================================
+    // CEK EMAIL DUPLIKAT
+    // ======================================
+
+    const existingUserResult =
+      await pool.query(
+        `
+          SELECT
+            id
+          FROM users
+          WHERE LOWER(email) = LOWER($1)
+          AND id != $2
+          LIMIT 1
+        `,
+        [
+          emailClean,
+          id,
+        ]
+      );
+
+
+    if (
+      existingUserResult.rows.length > 0
+    ) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+          "Email sudah digunakan",
+
+      });
+
+    }
+
+
+    // ======================================
+    // UPDATE TANPA PASSWORD
+    // ======================================
+
+    if (
+      !password ||
+      String(password).trim() === ""
+    ) {
+
+      const updateResult =
+        await pool.query(
           `
-            SELECT id
-            FROM users
-            WHERE email = ?
-            AND id != ?
+            UPDATE users
+            SET
+              nama = $1,
+              email = $2,
+              role = $3
+            WHERE id = $4
+            RETURNING
+              id,
+              nama,
+              email,
+              role
           `,
           [
+            namaClean,
             emailClean,
+            roleClean,
             id,
-          ],
-          async (
-            emailError,
-            existingUser
-          ) => {
-
-            if (emailError) {
-
-              console.error(
-                "CHECK UPDATE EMAIL ERROR:",
-                emailError
-              );
-
-              return res.status(500).json({
-
-                success: false,
-
-                message:
-                  "Gagal memeriksa email",
-
-              });
-
-            }
-
-
-            if (existingUser) {
-
-              return res.status(400).json({
-
-                success: false,
-
-                message:
-                  "Email sudah digunakan",
-
-              });
-
-            }
-
-
-            // =================================
-            // UPDATE TANPA PASSWORD
-            // =================================
-
-            if (
-              !password ||
-              String(password).trim() === ""
-            ) {
-
-              db.run(
-                `
-                  UPDATE users
-                  SET
-                    nama = ?,
-                    email = ?,
-                    role = ?
-                  WHERE id = ?
-                `,
-                [
-                  namaClean,
-                  emailClean,
-                  roleClean,
-                  id,
-                ],
-                async function (updateError) {
-
-                  if (updateError) {
-
-                    console.error(
-                      "UPDATE USER ERROR:",
-                      updateError
-                    );
-
-                    return res.status(500).json({
-
-                      success: false,
-
-                      message:
-                        "Gagal memperbarui user",
-
-                    });
-
-                  }
-
-
-                  // =========================
-                  // ACTIVITY LOG
-                  // =========================
-
-                  try {
-
-                    await createActivityLog(
-                      req.user?.id || null,
-                      `Mengubah user: ${user.nama} menjadi ${namaClean} (${emailClean}) dengan role ${roleClean}`
-                    );
-
-                  } catch (logError) {
-
-                    console.error(
-                      "UPDATE LOG ERROR:",
-                      logError
-                    );
-
-                  }
-
-
-                  return res.json({
-
-                    success: true,
-
-                    message:
-                      "User berhasil diperbarui",
-
-                    data: {
-
-                      id: Number(id),
-
-                      nama: namaClean,
-
-                      email: emailClean,
-
-                      role: roleClean,
-
-                    },
-
-                  });
-
-                }
-              );
-
-
-              return;
-
-            }
-
-
-            // =================================
-            // VALIDASI PASSWORD BARU
-            // =================================
-
-            if (
-              String(password).length < 6
-            ) {
-
-              return res.status(400).json({
-
-                success: false,
-
-                message:
-                  "Password minimal 6 karakter",
-
-              });
-
-            }
-
-
-            // =================================
-            // HASH PASSWORD
-            // =================================
-
-            let hashedPassword;
-
-            try {
-
-              hashedPassword =
-                await bcrypt.hash(
-                  password,
-                  10
-                );
-
-            } catch (hashError) {
-
-              console.error(
-                "HASH UPDATE PASSWORD ERROR:",
-                hashError
-              );
-
-              return res.status(500).json({
-
-                success: false,
-
-                message:
-                  "Gagal mengenkripsi password",
-
-              });
-
-            }
-
-
-            // =================================
-            // UPDATE DENGAN PASSWORD
-            // =================================
-
-            db.run(
-              `
-                UPDATE users
-                SET
-                  nama = ?,
-                  email = ?,
-                  password = ?,
-                  role = ?
-                WHERE id = ?
-              `,
-              [
-                namaClean,
-                emailClean,
-                hashedPassword,
-                roleClean,
-                id,
-              ],
-              async function (updateError) {
-
-                if (updateError) {
-
-                  console.error(
-                    "UPDATE USER PASSWORD ERROR:",
-                    updateError
-                  );
-
-                  return res.status(500).json({
-
-                    success: false,
-
-                    message:
-                      "Gagal memperbarui user",
-
-                  });
-
-                }
-
-
-                // =========================
-                // ACTIVITY LOG
-                // =========================
-
-                try {
-
-                  await createActivityLog(
-                    req.user?.id || null,
-                    `Mengubah user dan password: ${user.nama} menjadi ${namaClean} (${emailClean}) dengan role ${roleClean}`
-                  );
-
-                } catch (logError) {
-
-                  console.error(
-                    "UPDATE PASSWORD LOG ERROR:",
-                    logError
-                  );
-
-                }
-
-
-                return res.json({
-
-                  success: true,
-
-                  message:
-                    "User berhasil diperbarui",
-
-                  data: {
-
-                    id: Number(id),
-
-                    nama: namaClean,
-
-                    email: emailClean,
-
-                    role: roleClean,
-
-                  },
-
-                });
-
-              }
-            );
-
-          }
+          ]
         );
 
-      }
+
+      const updatedUser =
+        updateResult.rows[0];
+
+
+      // ==================================
+      // ACTIVITY LOG
+      // ==================================
+
+      await createActivityLog(
+        req.user?.id || null,
+        `Mengubah user: ${user.nama} menjadi ${namaClean} (${emailClean}) dengan role ${roleClean}`
+      );
+
+
+      // ==================================
+      // RESPONSE
+      // ==================================
+
+      return res.json({
+
+        success: true,
+
+        message:
+          "User berhasil diperbarui",
+
+        data: {
+
+          id: updatedUser.id,
+
+          nama: updatedUser.nama,
+
+          email: updatedUser.email,
+
+          role: updatedUser.role,
+
+        },
+
+      });
+
+    }
+
+
+    // ======================================
+    // VALIDASI PASSWORD BARU
+    // ======================================
+
+    if (
+      String(password).length < 6
+    ) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+          "Password minimal 6 karakter",
+
+      });
+
+    }
+
+
+    // ======================================
+    // HASH PASSWORD BARU
+    // ======================================
+
+    let hashedPassword;
+
+    try {
+
+      hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
+        );
+
+    } catch (hashError) {
+
+      console.error(
+        "HASH UPDATE PASSWORD ERROR:",
+        hashError
+      );
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Gagal mengenkripsi password",
+
+      });
+
+    }
+
+
+    // ======================================
+    // UPDATE DENGAN PASSWORD
+    // ======================================
+
+    const updateResult =
+      await pool.query(
+        `
+          UPDATE users
+          SET
+            nama = $1,
+            email = $2,
+            password = $3,
+            role = $4
+          WHERE id = $5
+          RETURNING
+            id,
+            nama,
+            email,
+            role
+        `,
+        [
+          namaClean,
+          emailClean,
+          hashedPassword,
+          roleClean,
+          id,
+        ]
+      );
+
+
+    const updatedUser =
+      updateResult.rows[0];
+
+
+    // ======================================
+    // ACTIVITY LOG
+    // ======================================
+
+    await createActivityLog(
+      req.user?.id || null,
+      `Mengubah user dan password: ${user.nama} menjadi ${namaClean} (${emailClean}) dengan role ${roleClean}`
     );
+
+
+    // ======================================
+    // RESPONSE
+    // ======================================
+
+    return res.json({
+
+      success: true,
+
+      message:
+        "User berhasil diperbarui",
+
+      data: {
+
+        id: updatedUser.id,
+
+        nama: updatedUser.nama,
+
+        email: updatedUser.email,
+
+        role: updatedUser.role,
+
+      },
+
+    });
 
   } catch (error) {
 
@@ -860,179 +742,162 @@ const updateUser = async (req, res) => {
 // DELETE USER
 // ========================================
 
-const deleteUser = (req, res) => {
+const deleteUser = async (req, res) => {
 
-  const {
-    id,
-  } = req.params;
+  try {
+
+    const {
+      id,
+    } = req.params;
 
 
-  // ======================================
-  // VALIDASI
-  // ======================================
+    // ======================================
+    // VALIDASI
+    // ======================================
 
-  if (!id) {
+    if (!id) {
 
-    return res.status(400).json({
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+          "ID user wajib diisi",
+
+      });
+
+    }
+
+
+    // ======================================
+    // CEK USER
+    // ======================================
+
+    const userResult =
+      await pool.query(
+        `
+          SELECT
+            id,
+            nama,
+            email,
+            role
+          FROM users
+          WHERE id = $1
+          LIMIT 1
+        `,
+        [
+          id,
+        ]
+      );
+
+
+    const user =
+      userResult.rows[0];
+
+
+    if (!user) {
+
+      return res.status(404).json({
+
+        success: false,
+
+        message:
+          "User tidak ditemukan",
+
+      });
+
+    }
+
+
+    // ======================================
+    // HAPUS USER
+    // ======================================
+
+    const deleteResult =
+      await pool.query(
+        `
+          DELETE FROM users
+          WHERE id = $1
+          RETURNING
+            id,
+            nama,
+            email,
+            role
+        `,
+        [
+          id,
+        ]
+      );
+
+
+    if (
+      deleteResult.rows.length === 0
+    ) {
+
+      return res.status(404).json({
+
+        success: false,
+
+        message:
+          "User tidak berhasil dihapus",
+
+      });
+
+    }
+
+
+    // ======================================
+    // ACTIVITY LOG
+    // ========================================
+
+    await createActivityLog(
+      req.user?.id || null,
+      `Menghapus user: ${user.nama} (${user.email}) dengan role ${user.role}`
+    );
+
+
+    // ======================================
+    // RESPONSE
+    // ======================================
+
+    return res.json({
+
+      success: true,
+
+      message:
+        "User berhasil dihapus",
+
+      data: {
+
+        id: Number(user.id),
+
+        nama: user.nama,
+
+        email: user.email,
+
+        role: user.role,
+
+      },
+
+    });
+
+  } catch (error) {
+
+    console.error(
+      "DELETE USER ERROR:",
+      error
+    );
+
+    return res.status(500).json({
 
       success: false,
 
       message:
-        "ID user wajib diisi",
+        "Gagal menghapus user",
 
     });
 
   }
-
-
-  // ======================================
-  // CEK USER
-  // ======================================
-
-  db.get(
-    `
-      SELECT
-        id,
-        nama,
-        email,
-        role
-      FROM users
-      WHERE id = ?
-    `,
-    [id],
-    (err, user) => {
-
-      if (err) {
-
-        console.error(
-          "GET USER DELETE ERROR:",
-          err
-        );
-
-        return res.status(500).json({
-
-          success: false,
-
-          message:
-            "Gagal mengambil data user",
-
-        });
-
-      }
-
-
-      if (!user) {
-
-        return res.status(404).json({
-
-          success: false,
-
-          message:
-            "User tidak ditemukan",
-
-        });
-
-      }
-
-
-      // ==================================
-      // HAPUS USER
-      // ==================================
-
-      db.run(
-        `
-          DELETE FROM users
-          WHERE id = ?
-        `,
-        [id],
-        async function (deleteError) {
-
-          if (deleteError) {
-
-            console.error(
-              "DELETE USER ERROR:",
-              deleteError
-            );
-
-            return res.status(500).json({
-
-              success: false,
-
-              message:
-                "Gagal menghapus user",
-
-            });
-
-          }
-
-
-          if (
-            this.changes === 0
-          ) {
-
-            return res.status(404).json({
-
-              success: false,
-
-              message:
-                "User tidak berhasil dihapus",
-
-            });
-
-          }
-
-
-          // =================================
-          // ACTIVITY LOG
-          // =================================
-
-          try {
-
-            await createActivityLog(
-              req.user?.id || null,
-              `Menghapus user: ${user.nama} (${user.email}) dengan role ${user.role}`
-            );
-
-          } catch (logError) {
-
-            console.error(
-              "DELETE LOG ERROR:",
-              logError
-            );
-
-          }
-
-
-          // =================================
-          // RESPONSE
-          // =================================
-
-          return res.json({
-
-            success: true,
-
-            message:
-              "User berhasil dihapus",
-
-            data: {
-
-              id: Number(id),
-
-              nama: user.nama,
-
-              email: user.email,
-
-              role: user.role,
-
-            },
-
-          });
-
-        }
-      );
-
-    }
-  );
 
 };
 
