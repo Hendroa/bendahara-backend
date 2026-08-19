@@ -22,15 +22,18 @@ const app = express();
 const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:3000",
-    process.env.FRONTEND_URL
-].filter(Boolean);
+    "https://luminous-semolina-3858f6.netlify.app"
+];
 
 app.use(
     cors({
         origin: function (origin, callback) {
 
-            // Izinkan request tanpa origin
-            // Contoh: PowerShell, Postman, server-to-server
+            // Izinkan request tanpa Origin
+            // Contoh:
+            // PowerShell
+            // Postman
+            // server-to-server
             if (!origin) {
                 return callback(null, true);
             }
@@ -43,11 +46,27 @@ app.use(
             console.log("CORS BLOCKED:", origin);
 
             return callback(
-                new Error("Origin tidak diizinkan oleh CORS")
+                new Error(
+                    `Origin tidak diizinkan oleh CORS: ${origin}`
+                )
             );
         },
 
-        credentials: true
+        credentials: true,
+
+        methods: [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS"
+        ],
+
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization"
+        ]
     })
 );
 
