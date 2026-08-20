@@ -17,7 +17,9 @@ const {
 // GET SEMUA PENGELUARAN
 // ========================================
 //
-// KETUA + BENDAHARA
+// KETUA + BENDAHARA + USER
+//
+// USER HANYA BOLEH MELIHAT DATA
 //
 // ========================================
 
@@ -29,7 +31,8 @@ router.get(
 
     authorizeRoles(
         "ketua",
-        "bendahara"
+        "bendahara",
+        "user"
     ),
 
     getAllPengeluaran
@@ -42,6 +45,8 @@ router.get(
 // ========================================
 //
 // KETUA + BENDAHARA
+//
+// USER TIDAK BOLEH
 //
 // ========================================
 
