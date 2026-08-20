@@ -15,205 +15,255 @@ require("./config/postgres");
 
 const app = express();
 
-// ========================================
-// CORS
-// ========================================
+// ============================================================
+// CORS CONFIGURATION
+// ============================================================
 
 const allowedOrigins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://luminous-semolina-3858f6.netlify.app"
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://luminous-semolina-3858f6.netlify.app",
 ];
 
-app.use(
-    cors({
-        origin: function (origin, callback) {
+// ============================================================
+// CORS
+// ============================================================
 
-            // Izinkan request tanpa Origin
-            // Contoh:
-            // PowerShell
-            // Postman
-            // server-to-server
-            if (!origin) {
-                return callback(null, true);
-            }
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Request tanpa Origin:
+    // PowerShell, Postman, server-to-server, dll.
+    if (!origin) {
+      return callback(null, true);
+    }
 
-            // Izinkan origin yang terdaftar
-            if (allowedOrigins.includes(origin)) {
-                return callback(null, true);
-            }
+    // Origin diizinkan
+    if (allowedOrigins.includes(origin)) {
+      console.log("CORS ALLOWED:", origin);
+      return callback(null, true);
+    }
 
-            console.log("CORS BLOCKED:", origin);
+    console.log("CORS BLOCKED:", origin);
 
-            return callback(
-                new Error(
-                    `Origin tidak diizinkan oleh CORS: ${origin}`
-                )
-            );
-        },
+    return callback(
+      new Error(
+        `Origin tidak diizinkan oleh CORS: ${origin}`
+      )
+    );
+  },
 
-        credentials: true,
+  credentials: true,
 
-        methods: [
-            "GET",
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE",
-            "OPTIONS"
-        ],
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+  ],
 
-        allowedHeaders: [
-            "Content-Type",
-            "Authorization"
-        ]
-    })
-);
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Accept",
+  ],
 
-// ========================================
+  exposedHeaders: [
+    "Content-Type",
+  ],
+
+  optionsSuccessStatus: 204,
+};
+
+// Pasang CORS
+app.use(cors(corsOptions));
+
+// ============================================================
 // BODY PARSER
-// ========================================
+// ============================================================
 
 app.use(express.json());
 
 app.use(
-    express.urlencoded({
-        extended: true
-    })
+  express.urlencoded({
+    extended: true,
+  })
 );
 
-// ========================================
+// ============================================================
+// REQUEST LOGGER
+// ============================================================
+
+app.use((req, res, next) => {
+  console.log(
+    `[REQUEST] ${req.method} ${req.originalUrl}`
+  );
+
+  console.log(
+    "[ORIGIN]",
+    req.headers.origin || "-"
+  );
+
+  next();
+});
+
+// ============================================================
 // TEST BACKEND
-// ========================================
+// ============================================================
 
 app.get("/", (req, res) => {
-
-    res.json({
-        success: true,
-        status: "OK",
-        message: "Backend Bendahara Berjalan"
-    });
-
+  res.json({
+    success: true,
+    status: "OK",
+    message: "Backend Bendahara Berjalan",
+  });
 });
 
-// ========================================
+// ============================================================
 // HEALTH CHECK
-// ========================================
+// ============================================================
 
 app.get("/health", (req, res) => {
-
-    res.json({
-        success: true,
-        status: "healthy",
-        message: "Backend Bendahara Online",
-        timestamp: new Date().toISOString()
-    });
-
+  res.json({
+    success: true,
+    status: "healthy",
+    message: "Backend Bendahara Online",
+    timestamp: new Date().toISOString(),
+  });
 });
 
-// ========================================
+// ============================================================
 // API ROUTES
-// ========================================
+// ============================================================
 
 app.use(
-    "/api/auth",
-    authRoutes
+  "/api/auth",
+  authRoutes
 );
 
 app.use(
-    "/api/pemasukan",
-    pemasukanRoutes
+  "/api/pemasukan",
+  pemasukanRoutes
 );
 
 app.use(
-    "/api/pengeluaran",
-    pengeluaranRoutes
+  "/api/pengeluaran",
+  pengeluaranRoutes
 );
 
 app.use(
-    "/api/approval",
-    approvalRoutes
+  "/api/approval",
+  approvalRoutes
 );
 
 app.use(
-    "/api/dashboard",
-    dashboardRoutes
+  "/api/dashboard",
+  dashboardRoutes
 );
 
 app.use(
-    "/api/laporan",
-    laporanRoutes
+  "/api/laporan",
+  laporanRoutes
 );
 
 app.use(
-    "/api/users",
-    userRoutes
+  "/api/users",
+  userRoutes
 );
 
-// ========================================
+// ============================================================
 // 404
-// ========================================
+// ============================================================
 
 app.use((req, res) => {
+  console.log(
+    `[404] ${req.method} ${req.originalUrl}`
+  );
 
-    res.status(404).json({
-        success: false,
-        message: `Route tidak ditemukan: ${req.method} ${req.originalUrl}`
-    });
-
+  res.status(404).json({
+    success: false,
+    message: `Route tidak ditemukan: ${req.method} ${req.originalUrl}`,
+  });
 });
 
-// ========================================
+// ============================================================
 // ERROR HANDLER
-// ========================================
+// ============================================================
 
 app.use((err, req, res, next) => {
+  console.error(
+    "======================================="
+  );
 
-    console.error("SERVER ERROR:", err);
+  console.error(
+    "SERVER ERROR:"
+  );
 
-    res.status(500).json({
-        success: false,
-        message: "Terjadi kesalahan pada server"
+  console.error(err);
+
+  console.error(
+    "======================================="
+  );
+
+  // Error CORS
+  if (
+    err &&
+    typeof err.message === "string" &&
+    err.message.includes(
+      "Origin tidak diizinkan oleh CORS"
+    )
+  ) {
+    return res.status(403).json({
+      success: false,
+      message: err.message,
     });
+  }
 
+  res.status(500).json({
+    success: false,
+    message: "Terjadi kesalahan pada server",
+  });
 });
 
-// ========================================
+// ============================================================
 // LOCAL SERVER
-// ========================================
-//
-// Vercel:
-// Tidak menjalankan app.listen()
-//
-// Local:
-// Menjalankan server pada port 5000
-//
+// ============================================================
 
 if (require.main === module) {
+  const PORT =
+    process.env.PORT || 5000;
 
-    const PORT = process.env.PORT || 5000;
-
-    app.listen(
-        PORT,
-        "0.0.0.0",
-        () => {
-
-            console.log("");
-            console.log("=======================================");
-            console.log("       BACKEND BENDAHARA");
-            console.log("=======================================");
-            console.log(`Server berjalan pada PORT ${PORT}`);
-            console.log("Health Check: /health");
-            console.log("=======================================");
-            console.log("");
-
-        }
-    );
-
+  app.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
+      console.log("");
+      console.log(
+        "======================================="
+      );
+      console.log(
+        "       BACKEND BENDAHARA"
+      );
+      console.log(
+        "======================================="
+      );
+      console.log(
+        `Server berjalan pada PORT ${PORT}`
+      );
+      console.log(
+        "Health Check: /health"
+      );
+      console.log(
+        "======================================="
+      );
+      console.log("");
+    }
+  );
 }
 
-// ========================================
+// ============================================================
 // EXPORT APP FOR VERCEL
-// ========================================
+// ============================================================
 
 module.exports = app;
