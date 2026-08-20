@@ -1,14 +1,11 @@
 const pool = require("../config/postgres");
 
-
 // ========================================
 // GET SEMUA PEMASUKAN
 // ========================================
 
 exports.getAllPemasukan = async (req, res) => {
-
   try {
-
     const result = await pool.query(`
       SELECT
         p.id,
@@ -20,12 +17,9 @@ exports.getAllPemasukan = async (req, res) => {
         p.status,
         p.created_at,
         u.nama AS nama_pembuat
-
       FROM pemasukan p
-
       LEFT JOIN users u
         ON p.dibuat_oleh = u.id
-
       ORDER BY p.id DESC
     `);
 
@@ -35,7 +29,6 @@ exports.getAllPemasukan = async (req, res) => {
     });
 
   } catch (error) {
-
     console.error(
       "Error mengambil pemasukan:",
       error.message
@@ -45,9 +38,7 @@ exports.getAllPemasukan = async (req, res) => {
       success: false,
       message: "Gagal mengambil data pemasukan",
     });
-
   }
-
 };
 
 
@@ -56,20 +47,16 @@ exports.getAllPemasukan = async (req, res) => {
 // ========================================
 
 exports.getPemasukanById = async (req, res) => {
-
   const { id } = req.params;
 
   if (!id) {
-
     return res.status(400).json({
       success: false,
       message: "ID pemasukan wajib diisi",
     });
-
   }
 
   try {
-
     const result = await pool.query(
       `
       SELECT
@@ -82,12 +69,9 @@ exports.getPemasukanById = async (req, res) => {
         p.status,
         p.created_at,
         u.nama AS nama_pembuat
-
       FROM pemasukan p
-
       LEFT JOIN users u
         ON p.dibuat_oleh = u.id
-
       WHERE p.id = $1
       `,
       [id]
@@ -96,12 +80,10 @@ exports.getPemasukanById = async (req, res) => {
     const row = result.rows[0];
 
     if (!row) {
-
       return res.status(404).json({
         success: false,
         message: "Data pemasukan tidak ditemukan",
       });
-
     }
 
     return res.json({
@@ -110,7 +92,6 @@ exports.getPemasukanById = async (req, res) => {
     });
 
   } catch (error) {
-
     console.error(
       "Error mengambil pemasukan:",
       error.message
@@ -120,9 +101,7 @@ exports.getPemasukanById = async (req, res) => {
       success: false,
       message: "Gagal mengambil data pemasukan",
     });
-
   }
-
 };
 
 
@@ -131,15 +110,25 @@ exports.getPemasukanById = async (req, res) => {
 // ========================================
 
 exports.createPemasukan = async (req, res) => {
-
   const {
     tanggal,
     kategori,
     nominal,
     keterangan,
-    dibuat_oleh,
   } = req.body;
 
+  // ======================================
+  // USER LOGIN
+  // ======================================
+
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "User belum terautentikasi",
+    });
+  }
 
   // ======================================
   // VALIDASI
@@ -149,18 +138,14 @@ exports.createPemasukan = async (req, res) => {
     !tanggal ||
     !kategori ||
     nominal === undefined ||
-    nominal === null ||
-    !dibuat_oleh
+    nominal === null
   ) {
-
     return res.status(400).json({
       success: false,
       message:
-        "Tanggal, kategori, nominal dan pembuat wajib diisi",
+        "Tanggal, kategori dan nominal wajib diisi",
     });
-
   }
-
 
   // ======================================
   // VALIDASI NOMINAL
@@ -172,18 +157,14 @@ exports.createPemasukan = async (req, res) => {
     Number.isNaN(nominalNumber) ||
     nominalNumber <= 0
   ) {
-
     return res.status(400).json({
       success: false,
       message:
         "Nominal harus berupa angka dan lebih besar dari 0",
     });
-
   }
 
-
   try {
-
     // ====================================
     // CEK USER
     // ====================================
@@ -197,21 +178,17 @@ exports.createPemasukan = async (req, res) => {
       FROM users
       WHERE id = $1
       `,
-      [dibuat_oleh]
+      [userId]
     );
 
     const user = userResult.rows[0];
 
     if (!user) {
-
       return res.status(404).json({
         success: false,
-        message:
-          "User pembuat tidak ditemukan",
+        message: "User pembuat tidak ditemukan",
       });
-
     }
-
 
     // ====================================
     // INSERT PEMASUKAN
@@ -228,7 +205,6 @@ exports.createPemasukan = async (req, res) => {
         dibuat_oleh,
         status
       )
-
       VALUES
       (
         $1,
@@ -238,7 +214,6 @@ exports.createPemasukan = async (req, res) => {
         $5,
         'PENDING'
       )
-
       RETURNING
         id,
         tanggal,
@@ -254,50 +229,31 @@ exports.createPemasukan = async (req, res) => {
         kategori,
         nominalNumber,
         keterangan || "",
-        dibuat_oleh,
+        userId,
       ]
     );
 
     const pemasukan = result.rows[0];
 
-
-    // ====================================
-    // RESPONSE
-    // ====================================
-
     return res.status(201).json({
-
       success: true,
-
       message:
         "Pemasukan berhasil dibuat dan menunggu approval",
 
       data: {
-
         id: pemasukan.id,
-
         tanggal: pemasukan.tanggal,
-
         kategori: pemasukan.kategori,
-
         nominal: Number(pemasukan.nominal),
-
         keterangan: pemasukan.keterangan,
-
         dibuat_oleh: pemasukan.dibuat_oleh,
-
         nama_pembuat: user.nama,
-
         status: pemasukan.status,
-
         created_at: pemasukan.created_at,
-
       },
-
     });
 
   } catch (error) {
-
     console.error(
       "Error menambah pemasukan:",
       error.message
@@ -307,9 +263,7 @@ exports.createPemasukan = async (req, res) => {
       success: false,
       message: "Gagal menyimpan pemasukan",
     });
-
   }
-
 };
 
 
@@ -318,7 +272,6 @@ exports.createPemasukan = async (req, res) => {
 // ========================================
 
 exports.updatePemasukan = async (req, res) => {
-
   const { id } = req.params;
 
   const {
@@ -328,24 +281,21 @@ exports.updatePemasukan = async (req, res) => {
     keterangan,
   } = req.body;
 
+  const userId = req.user?.id;
 
-  // ======================================
-  // VALIDASI ID
-  // ======================================
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "User belum terautentikasi",
+    });
+  }
 
   if (!id) {
-
     return res.status(400).json({
       success: false,
       message: "ID pemasukan wajib diisi",
     });
-
   }
-
-
-  // ======================================
-  // VALIDASI DATA
-  // ======================================
 
   if (
     !tanggal ||
@@ -353,15 +303,12 @@ exports.updatePemasukan = async (req, res) => {
     nominal === undefined ||
     nominal === null
   ) {
-
     return res.status(400).json({
       success: false,
       message:
         "Tanggal, kategori dan nominal wajib diisi",
     });
-
   }
-
 
   const nominalNumber = Number(nominal);
 
@@ -369,31 +316,25 @@ exports.updatePemasukan = async (req, res) => {
     Number.isNaN(nominalNumber) ||
     nominalNumber <= 0
   ) {
-
     return res.status(400).json({
       success: false,
       message:
         "Nominal harus lebih besar dari 0",
     });
-
   }
 
-
   try {
-
     const result = await pool.query(
       `
       UPDATE pemasukan
-
       SET
         tanggal = $1,
         kategori = $2,
         nominal = $3,
         keterangan = $4
-
       WHERE id = $5
+        AND dibuat_oleh = $6
         AND status = 'PENDING'
-
       RETURNING
         id,
         tanggal,
@@ -410,38 +351,25 @@ exports.updatePemasukan = async (req, res) => {
         nominalNumber,
         keterangan || "",
         id,
+        userId,
       ]
     );
 
-
-    // ====================================
-    // DATA TIDAK DITEMUKAN
-    // ====================================
-
     if (result.rowCount === 0) {
-
       return res.status(404).json({
         success: false,
         message:
-          "Data tidak ditemukan atau sudah diproses",
+          "Data tidak ditemukan, bukan milik Anda, atau sudah diproses",
       });
-
     }
 
-
     return res.json({
-
       success: true,
-
-      message:
-        "Pemasukan berhasil diperbarui",
-
+      message: "Pemasukan berhasil diperbarui",
       data: result.rows[0],
-
     });
 
   } catch (error) {
-
     console.error(
       "Error update pemasukan:",
       error.message
@@ -449,12 +377,9 @@ exports.updatePemasukan = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message:
-        "Gagal mengubah pemasukan",
+      message: "Gagal mengubah pemasukan",
     });
-
   }
-
 };
 
 
@@ -463,62 +388,53 @@ exports.updatePemasukan = async (req, res) => {
 // ========================================
 
 exports.deletePemasukan = async (req, res) => {
-
   const { id } = req.params;
 
+  const userId = req.user?.id;
 
-  if (!id) {
-
-    return res.status(400).json({
+  if (!userId) {
+    return res.status(401).json({
       success: false,
-      message:
-        "ID pemasukan wajib diisi",
+      message: "User belum terautentikasi",
     });
-
   }
 
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "ID pemasukan wajib diisi",
+    });
+  }
 
   try {
-
     const result = await pool.query(
       `
       DELETE FROM pemasukan
-
       WHERE id = $1
+        AND dibuat_oleh = $2
         AND status = 'PENDING'
-
       RETURNING id
       `,
-      [id]
+      [
+        id,
+        userId,
+      ]
     );
 
-
-    // ====================================
-    // DATA TIDAK DITEMUKAN
-    // ====================================
-
     if (result.rowCount === 0) {
-
       return res.status(404).json({
         success: false,
         message:
-          "Data tidak ditemukan atau sudah diproses",
+          "Data tidak ditemukan, bukan milik Anda, atau sudah diproses",
       });
-
     }
 
-
     return res.json({
-
       success: true,
-
-      message:
-        "Pemasukan berhasil dihapus",
-
+      message: "Pemasukan berhasil dihapus",
     });
 
   } catch (error) {
-
     console.error(
       "Error menghapus pemasukan:",
       error.message
@@ -526,10 +442,12 @@ exports.deletePemasukan = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message:
-        "Gagal menghapus pemasukan",
+      message: "Gagal menghapus pemasukan",
     });
-
   }
-
 };
+
+
+// ========================================
+// EXPORT SELESAI
+// ========================================
