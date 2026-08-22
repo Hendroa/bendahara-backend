@@ -28,15 +28,48 @@ const app = express();
 // ============================================================
 
 const allowedOrigins = [
+  // Local development
   "http://localhost:5173",
   "http://localhost:3000",
 
-  // Frontend Vercel production
+  // Frontend Vercel production utama
   "https://bendahara-frontend.vercel.app",
+
+  // Frontend Vercel deployment yang sedang digunakan
+  "https://bendahara-frontend-zk45-fc041oyax-hendro1.vercel.app",
 
   // Frontend Netlify lama
   "https://luminous-semolina-3858f6.netlify.app",
-];
+
+  // Environment variable
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+// ============================================================
+// CORS CHECK
+// ============================================================
+
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  return allowedOrigins.includes(origin);
+}
+
+// ============================================================
+// DEBUG ALLOWED ORIGINS
+// ============================================================
+
+console.log("=======================================");
+console.log("CORS ALLOWED ORIGINS");
+console.log("=======================================");
+
+allowedOrigins.forEach((origin) => {
+  console.log("-", origin);
+});
+
+console.log("=======================================");
 
 // ============================================================
 // CORS MIDDLEWARE
@@ -53,7 +86,7 @@ app.use((req, res, next) => {
   console.log("=======================================");
 
   // ----------------------------------------------------------
-  // Request tanpa Origin
+  // REQUEST TANPA ORIGIN
   // ----------------------------------------------------------
 
   if (!origin) {
@@ -61,10 +94,10 @@ app.use((req, res, next) => {
   }
 
   // ----------------------------------------------------------
-  // Origin diizinkan
+  // ORIGIN DIIZINKAN
   // ----------------------------------------------------------
 
-  if (allowedOrigins.includes(origin)) {
+  if (isAllowedOrigin(origin)) {
     res.setHeader(
       "Access-Control-Allow-Origin",
       origin
@@ -106,7 +139,7 @@ app.use((req, res, next) => {
   // ----------------------------------------------------------
 
   if (req.method === "OPTIONS") {
-    if (allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       return res.status(204).end();
     }
 
@@ -127,14 +160,17 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin: function (origin, callback) {
+      // Request tanpa Origin
       if (!origin) {
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      // Origin diizinkan
+      if (isAllowedOrigin(origin)) {
         return callback(null, true);
       }
 
+      // Origin ditolak
       return callback(
         new Error(
           `Origin tidak diizinkan oleh CORS: ${origin}`
@@ -293,6 +329,7 @@ app.use((err, req, res, next) => {
 
   console.error(
     "======================================="
+
   );
 
   // ----------------------------------------------------------
