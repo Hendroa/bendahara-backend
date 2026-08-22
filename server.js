@@ -3,6 +3,10 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
+// ============================================================
+// ROUTES
+// ============================================================
+
 const authRoutes = require("./routes/authRoutes");
 const pemasukanRoutes = require("./routes/pemasukanRoutes");
 const pengeluaranRoutes = require("./routes/pengeluaranRoutes");
@@ -13,71 +17,155 @@ const userRoutes = require("./routes/userRoutes");
 
 require("./config/postgres");
 
+// ============================================================
+// APP
+// ============================================================
+
 const app = express();
 
 // ============================================================
-// CORS CONFIGURATION
+// ALLOWED ORIGINS
 // ============================================================
 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
+
+  // Frontend Vercel production
+  "https://bendahara-frontend.vercel.app",
+
+  // Frontend Netlify lama
   "https://luminous-semolina-3858f6.netlify.app",
 ];
 
 // ============================================================
-// CORS
+// CORS MIDDLEWARE
 // ============================================================
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Request tanpa Origin:
-    // PowerShell, Postman, server-to-server, dll.
-    if (!origin) {
-      return callback(null, true);
-    }
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
 
-    // Origin diizinkan
-    if (allowedOrigins.includes(origin)) {
-      console.log("CORS ALLOWED:", origin);
-      return callback(null, true);
-    }
+  console.log("=======================================");
+  console.log("CORS REQUEST");
+  console.log("METHOD:", req.method);
+  console.log("ORIGIN:", origin || "-");
+  console.log("URL:", req.originalUrl);
+  console.log("=======================================");
 
-    console.log("CORS BLOCKED:", origin);
+  // ----------------------------------------------------------
+  // Request tanpa Origin
+  // ----------------------------------------------------------
 
-    return callback(
-      new Error(
-        `Origin tidak diizinkan oleh CORS: ${origin}`
-      )
+  if (!origin) {
+    return next();
+  }
+
+  // ----------------------------------------------------------
+  // Origin diizinkan
+  // ----------------------------------------------------------
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      origin
     );
-  },
 
-  credentials: true,
+    res.setHeader(
+      "Access-Control-Allow-Credentials",
+      "true"
+    );
 
-  methods: [
-    "GET",
-    "POST",
-    "PUT",
-    "PATCH",
-    "DELETE",
-    "OPTIONS",
-  ],
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    );
 
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "Accept",
-  ],
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, Accept"
+    );
 
-  exposedHeaders: [
-    "Content-Type",
-  ],
+    res.setHeader(
+      "Access-Control-Expose-Headers",
+      "Content-Type"
+    );
 
-  optionsSuccessStatus: 204,
-};
+    console.log(
+      "CORS ALLOWED:",
+      origin
+    );
+  } else {
+    console.log(
+      "CORS BLOCKED:",
+      origin
+    );
+  }
 
-// Pasang CORS
-app.use(cors(corsOptions));
+  // ----------------------------------------------------------
+  // PREFLIGHT OPTIONS
+  // ----------------------------------------------------------
+
+  if (req.method === "OPTIONS") {
+    if (allowedOrigins.includes(origin)) {
+      return res.status(204).end();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message:
+        "Origin tidak diizinkan oleh CORS",
+    });
+  }
+
+  next();
+});
+
+// ============================================================
+// EXPRESS CORS
+// ============================================================
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(
+        new Error(
+          `Origin tidak diizinkan oleh CORS: ${origin}`
+        )
+      );
+    },
+
+    credentials: true,
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Accept",
+    ],
+
+    exposedHeaders: [
+      "Content-Type",
+    ],
+
+    optionsSuccessStatus: 204,
+  })
+);
 
 // ============================================================
 // BODY PARSER
@@ -109,7 +197,7 @@ app.use((req, res, next) => {
 });
 
 // ============================================================
-// TEST BACKEND
+// ROOT
 // ============================================================
 
 app.get("/", (req, res) => {
@@ -183,7 +271,8 @@ app.use((req, res) => {
 
   res.status(404).json({
     success: false,
-    message: `Route tidak ditemukan: ${req.method} ${req.originalUrl}`,
+    message:
+      `Route tidak ditemukan: ${req.method} ${req.originalUrl}`,
   });
 });
 
@@ -206,7 +295,10 @@ app.use((err, req, res, next) => {
     "======================================="
   );
 
-  // Error CORS
+  // ----------------------------------------------------------
+  // CORS ERROR
+  // ----------------------------------------------------------
+
   if (
     err &&
     typeof err.message === "string" &&
@@ -220,9 +312,14 @@ app.use((err, req, res, next) => {
     });
   }
 
-  res.status(500).json({
+  // ----------------------------------------------------------
+  // GENERAL ERROR
+  // ----------------------------------------------------------
+
+  return res.status(500).json({
     success: false,
-    message: "Terjadi kesalahan pada server",
+    message:
+      "Terjadi kesalahan pada server",
   });
 });
 
@@ -263,7 +360,7 @@ if (require.main === module) {
 }
 
 // ============================================================
-// EXPORT APP FOR VERCEL
+// VERCEL
 // ============================================================
 
 module.exports = app;
